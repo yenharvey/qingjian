@@ -214,6 +214,22 @@ jobs:
       - name: Build (what install.sh builds)
         run: cargo build --locked -p qingjian-linux-server -p qingjian-settings
 
+      # 22.04 用户走的是 install.sh --fcitx4：真跑一遍装到临时目录，再卸掉，确认文件装对、卸干净。
+      - name: Install with --fcitx4 (sample data)
+        run: |
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            fcitx-libs-dev libx11-dev libxres-dev nlohmann-json3-dev
+          python3 apps/linux/tests/installation.py
+          prefix=/tmp/qingjian-prefix
+          apps/linux/scripts/install.sh --fcitx4 --sample --debug --prefix "$prefix"
+          test -x "$prefix/bin/qingjian-linux-server"
+          test -f "$prefix/lib/fcitx/fcitx-qingjian.so"
+          grep -qF "Library=$prefix/lib/fcitx/fcitx-qingjian.so" "$HOME/.config/fcitx/addon/fcitx-qingjian.conf"
+          apps/linux/scripts/uninstall.sh --prefix "$prefix"
+          test ! -e "$prefix/lib/fcitx/fcitx-qingjian.so"
+          test ! -e "$HOME/.config/fcitx/addon/fcitx-qingjian.conf"
+          if apps/linux/scripts/install.sh --fcitx4 --frontend ibus --prefix "$prefix"; then exit 1; fi
+
       # 再跑一遍 workspace 测试：老 glibc 上某个依赖编不过或行为不同，在这里暴露。
       - name: Test
         run: cargo test --workspace --exclude qingjian-macos --locked
