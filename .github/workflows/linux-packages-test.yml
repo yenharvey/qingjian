@@ -1,0 +1,43 @@
+# 只在 fork 上试：用 apps/linux/packaging 打 deb / rpm，再在五个发行版的干净容器里装包自检。
+# 不进正式仓库；以后接进发版流程时以它为底稿。
+name: linux-packages-test
+
+on:
+  push:
+    branches: ['test/**']
+
+permissions:
+  contents: read
+
+jobs:
+  packages:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # build.sh 把本机的 ~/.cargo 与 ~/.rustup 挂进容器用，rust-toolchain.toml 要的组件也得先装好
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
+        with:
+          toolchain: 1.96.0
+          components: rustfmt, clippy
+
+      - name: Fetch product data
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: tools/release/data-fetch.sh
+
+      - name: Build deb and rpm
+        run: apps/linux/packaging/build.sh deb rpm
+
+      - name: Smoke test in five distros
+        run: apps/linux/packaging/smoke/run.sh
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: linux-packages
+          path: target/linux-pkg/out/
+          if-no-files-found: ignore
