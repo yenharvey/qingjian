@@ -189,10 +189,11 @@ fn main() -> ExitCode {
     let dict = std::env::var_os("QINGJIAN_DICT")
         .map(PathBuf::from)
         .unwrap_or_else(|| default_dict(&root));
+    let user = user_dir();
     let glossary_path = language.and_then(|language| {
         std::env::var_os("QINGJIAN_GLOSSARY")
             .map(PathBuf::from)
-            .or_else(|| glossary_file(&root, language))
+            .or_else(|| glossary_file(&root, user.as_deref(), language))
             .filter(|path| path.is_file())
     });
     let glossary = language.zip(glossary_path);
@@ -200,8 +201,8 @@ fn main() -> ExitCode {
     let bundled_codes_dir = Some(root.join("data/generated/codes")).filter(|dir| dir.is_dir());
     let spec = AssemblySpec {
         glossary: glossary.clone(),
-        english_glossary: glossary_file(&root, Language::Chinese),
-        english: generated(&root, "english.tsv"),
+        english_glossary: glossary_file(&root, user.as_deref(), Language::Chinese),
+        english: generated(&root, "english.qj"),
         emoji: ["emoji-zh.tsv", "emoji-en.tsv"]
             .into_iter()
             .filter_map(|name| asset(&root, &format!("emoji/{name}")))
@@ -258,7 +259,7 @@ fn main() -> ExitCode {
     dispatch::attach_cloud(&mut engine, &config.predict, usage_path);
     let router_config = RouterConfig::from(&config);
     let mut router = Router::new(engine, router_config.clone());
-    let vietnamese_words = generated(&root, "vietnamese.tsv").and_then(|path| {
+    let vietnamese_words = generated(&root, "vietnamese.qj").and_then(|path| {
         match qingjian_dictionary::WordList::from_path(&path) {
             Ok(words) => Some(words),
             Err(error) => {
@@ -268,7 +269,7 @@ fn main() -> ExitCode {
         }
     });
     router.set_vietnamese_words(vietnamese_words);
-    let vietnamese_glossary = generated(&root, "vietnamese-zh.tsv").and_then(|path| {
+    let vietnamese_glossary = generated(&root, "vietnamese-chinese.qj").and_then(|path| {
         match qingjian_translate::Glossary::from_path(Language::Chinese, &path) {
             Ok(bundled) => {
                 let personal = user_dir().map_or_else(

@@ -16,6 +16,14 @@ The core dictionary has 130,000 entries, and a general dictionary and 11 topic d
 The core dictionary includes 36,000 rare characters (extended characters outside the standard character table, plus characters rarely used in Taiwan). They can be typed in pinyin, come last among characters with the same sound, and aren't used in sentences:
 `fiao` gives 覅, `biangbiangmian` gives 𰻝𰻝面. Characters missing from the system fonts are shown as boxes.
 
+## Downloading dictionaries
+
+设置 → 词库 → 下载 (Settings → Dictionaries → Download) lists the dictionaries and glossaries you can download from the Qingjian dictionary repository; 词库 ｜ 释义表 (Dictionaries | Glossaries) at the top switches between the two. Each shows a description, its author, size and license; click an author's name, when it is a link, to open their homepage. Ones put together by others are marked 第三方 (Third-party) next to the name.
+The list is fetched once when Settings opens; when offline, the last list fetched is shown, with the time it was fetched above it. Click 刷新 (Refresh) to fetch it again. 下载 (Download) installs a dictionary into your data folder; it then appears under 导入的词库 (Imported dictionaries) like an imported one, turned on by default, and can be turned off or removed.
+When the repository has a newer version, the button changes to 更新 (Update).
+
+Entries under 释义表 (Glossaries) are the tables behind the glosses beside candidates (learning languages such as Japanese or Spanish, and the Chinese beside English candidates). Once downloaded, the input method switches to them without a restart. They don't appear under 导入的词库 (Imported dictionaries), and a downloaded table takes precedence over the bundled one for the same language.
+
 ## Importing your own dictionaries
 
 设置 → 词库 → 导入词库 (Settings → Dictionaries → Import dictionary) lets you select several files at once and accepts five kinds:
@@ -26,7 +34,7 @@ The core dictionary includes 36,000 rare characters (extended characters outside
   a reading written in the list wins, then the whole word's reading in the dictionaries, then readings from splitting it by dictionary words (`中华人民共和国` uses 中华, 人民 and 共和国), and finally the most common reading for each remaining character.
   Words whose characters aren't in the bundled dictionaries are skipped; the result says how many were skipped and shows the first few.
 - **Sogou cell dictionaries** (`.scel`): dictionaries downloaded from Sogou's dictionary site. Words and pinyin are read; they carry no frequencies (each word counts as 100), and the name comes from the file name.
-- **Qingjian dictionaries** (`.qj`): dictionary files made by others, with their own name and license.
+- **Qingjian dictionaries** (`.qj`, or compressed `.qjz`): dictionary files made by others, with their own name and license. A `.qjz` is unpacked during import; there's no need to decompress it first.
 
 - Imported dictionaries are listed below the bundled ones with their name, entry count and license, and are turned on automatically; the input method usually starts using them within about a second, no restart needed.
 - One file failing doesn't affect the others; the result for each file is shown when done. Files with no usable entries can't be imported.

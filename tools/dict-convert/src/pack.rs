@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use qingjian_core::Language;
-use qingjian_dictionary::Dictionary;
+use qingjian_dictionary::{Dictionary, WordList};
 use qingjian_format::Metadata;
 use qingjian_lm::BigramModel;
 use qingjian_translate::Glossary;
@@ -26,7 +26,7 @@ const CODES_ATTRIBUTION: &str = "CNS11643 全字庫筆順資料（數位發展�
 /// 来源：全字庫开放数据的数据集页。
 const CODES_SOURCE: &str = "https://data.gov.tw/dataset/5961";
 
-/// `pack codes` 的三个路径（别的种类不给）。都不给时都从 `out_dir` 里找。
+/// `pack codes` 的三个路径（`model` 与 `wordlist` 只用 `output`）。都不给时都从 `out_dir` 里找。
 #[derive(Debug, Default)]
 pub struct CodePaths<'a> {
     /// 笔画表（`stroke` 子命令的产物）。
@@ -111,6 +111,22 @@ pub fn pack(
             glossary.write_qj(&out, &metadata)?;
             report(&out, glossary.len(), started);
         }
+        PackKind::Wordlist => {
+            let [input] = inputs else {
+                return Err(ConvertError::Format {
+                    path: PathBuf::from("--input"),
+                    line: 0,
+                    reason: "wordlist takes exactly one input TSV".to_owned(),
+                });
+            };
+            let out = paths.output.map(Path::to_path_buf).unwrap_or_else(|| {
+                let stem = input.file_stem().unwrap_or_default();
+                out_dir.join(stem).with_extension("qj")
+            });
+            let words = WordList::from_path(input)?;
+            words.write_qj(&out, &metadata)?;
+            report(&out, words.len(), started);
+        }
         PackKind::Model => {
             let input = inputs
                 .first()
@@ -190,4 +206,24 @@ fn report(out: &Path, entries: usize, started: Instant) {
         elapsed_ms = started.elapsed().as_millis(),
         "已打包"
     );
+}
+
+/// 每个 `.qj` 压成 `<out_dir>/<主干>.qjz`。
+pub fn qjz(inputs: &[PathBuf], out_dir: &Path) -> Result<(), ConvertError> {
+    std::fs::create_dir_all(out_dir)?;
+    for input in inputs {
+        let stem = input
+            .file_stem()
+            .unwrap_or(input.as_os_str())
+            .to_string_lossy();
+        let output = out_dir.join(format!("{stem}.qjz"));
+        qingjian_format::qjz::compress(input, &output)?;
+        tracing::info!(
+            input = %input.display(),
+            output = %output.display(),
+            bytes = std::fs::metadata(&output)?.len(),
+            "compressed"
+        );
+    }
+    Ok(())
 }

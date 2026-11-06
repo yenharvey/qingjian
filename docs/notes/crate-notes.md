@@ -43,9 +43,9 @@ TSV 的音节可带数字声调（`ni3`，轻声 5 或 0），键一律去调，
 日语罗马音（`japanese/`，目前只给 Android 测试用）：`to_hiragana` 最长匹配转平假名（同辅音连打 → っ、`n` 后接辅音 → ん、`-` → ー，没拼完的罗马音留在末尾），`RomajiComposer` 出候选（汉字词、平假名、片假名、边敲边出的汉字词、原样罗马音）。汉字只查 `words.rs` 里约 130 条手写常用词，正式的词典与转换以后再做，那时删掉这张表。
 
 越南语 Simple Telex 在 `vietnamese/`：`TelexComposer` 只存原始按键，每次编辑后用 MIT 许可的纯 Rust `vi` crate 重算现代声调写法；外层补词首 `w` 不转 `ư`、重复声调键恢复字面文本、Esc 恢复原始按键与按词 commit。`vi` 自带越南语音节校验，所以 `linux` / `changes` 保持英文，`this` → `thí`、`mix` → `mĩ` 这类合法越南语歧义与 UniKey 一致。桌面壳只维护模式和 composition / marked text，不各写一套转换规则。
-候选词表 `vietnamese.tsv` 与反向中文释义表 `vietnamese-zh.tsv` 不进 git，由 `tools/corpus/vietnamese_words.py` 从自建的 `assets/glossary/glossary-vi.tsv` 提取译词、去重，并以释义表出现次数作为近似频率；同一越南语词对应的中文源词按出现次数取前两条。打包脚本生成后随包。输入至少两个越南语字符时用 `WordList` 前缀补全，当前转换结果排第一、原始按键排最后；候选用反向 `Glossary` 显示中文译词。
+候选词表 `vietnamese.qj` 与反向中文释义表 `vietnamese-chinese.qj` 是词库仓库的两本随包词库（`vietnamese` 与 `vietnamese-chinese`），由那边的 `tools/vietnamese.py` 从越南语释义表提取译词、去重，并以释义表出现次数作为近似频率；同一越南语词对应的中文源词按出现次数取前两条。输入至少两个越南语字符时用 `WordList` 前缀补全，当前转换结果排第一、原始按键排最后；候选用反向 `Glossary` 显示中文译词。
 越南语候选右键菜单走 `qingjian-platform::candidate_menu::IndependentInputContext` 公共接口：输入法提供命名空间、原始输入码和模型译词目标语言，即可复用提权、降权、取消降权和模型译词。越南语使用 `vi:` 学习键且固定请求中文；将来的日语、韩语应使用各自稳定命名空间，不复制平台菜单逻辑。
-越南语中文译词使用 `LayeredTranslator`：随包 `vietnamese-zh.tsv` 只读，模型重新生成的覆盖写入用户目录 `user-glossary-input-vi-zh.tsv`，个人表优先。当前候选立即从覆盖层回读，下一次输入和重启后仍生效；未来第三输入法应按输入法命名空间与翻译方向使用独立个人表。
+越南语中文译词使用 `LayeredTranslator`：随包 `vietnamese-chinese.qj` 只读，模型重新生成的覆盖写入用户目录 `user-glossary-input-vi-zh.tsv`，个人表优先。当前候选立即从覆盖层回读，下一次输入和重启后仍生效；未来第三输入法应按输入法命名空间与翻译方向使用独立个人表。
 macOS 所有越南语清空和提交路径都使用 IMK 已验证的空 `setMarkedText:`，不能直接向客户端代理发 `unmarkText`：部分应用会抛 Objective-C exception，异常越过 Rust FFI 后导致输入法进程 abort。正常空格、标点和候选提交先清 marked text 再 `insertText:`。菜单栏状态项按中 / 英 / 越三态显示，提交一个词不会改变越南语模式。
 越南语首键刷新与中文 `refresh` 保持同一调用顺序：先更新应用里的 marked text，再读取 caret、呈现候选窗；不要在 `setMarkedText:` 之前显示窗口，避免 IMK 首键回调发生客户端重入。
 `TelexComposer` 同时持有已确认的整段前缀与当前词：空格 / 标点只用 `commit_word` 确认当前词并继续保持 marked text，下一枚字母开始下一词；只有 Enter、失焦或切换模式才用 `commit` 一次性上屏整段。当前词为空时退格可继续删除整段前缀。平台候选始终只按 `current()` 查，不把整段前缀带进词库查询。
@@ -161,6 +161,7 @@ mac 存在 `Session::spelling`（`Host::follow_highlight`）、Windows / Linux �
 
 `Glossary`，本地 TSV 释义表（词性 + 译文）；`LevelTable`，词汇等级表（`assets/levels/levels-{en,ja}.tsv`，CEFR A1–C2 / JLPT N5–N1，
 `uv run tools/corpus/levels.py` 从 `data/levels/` 的原始 CSV 生成，来源与许可见 `assets/levels/README.md`），「统计」页按级数词汇用，不进候选。
+`downloaded_glossary` 给出设置页下载的释义表位置（用户目录 `glossaries/glossary-<语言>.qj`）：各平台壳先找它、再找随包的，所以下载的新版盖过随包的；壳轮询这个目录（`extra_dictionaries::snapshot`），变了重装英→中表与学习语言的表（`Engine::set_english_translator` / `set_translator`）。
 
 ## crates/qingjian-learning
 
@@ -246,6 +247,10 @@ rustls 与 `webpki-roots` 提到了工作区依赖，与 `qingjian-predict` 的 
 `.qj` 数据容器（`Container` mmap 读、`Writer` 写、`Table<T>` / `Text` 零拷贝视图、`hash` 可落盘哈希索引、`Metadata` 名称 / 许可证 / 署名）。
 词库与语言模型都能 `write_qj` / 从 `.qj` 打开，启动 50 ms；`cargo run --release -p qingjian-dict-convert -- pack dict|lm --name … --license …`
 生成 `data/generated/{dict,lm}.qj`，`bundle.sh` 在 TSV 更新时自动重打并只把 `.qj` 打进包。设计见 `docs/design/architecture.md`「数据文件：`.qj` 容器」。
+`qjz` 模块是分发用的压缩 `.qj`（词库仓库 qingjian-dicts 的 Release 附件、设置页导入）：现在是 gzip，按开头魔数认算法，以后换 zstd / xz 扩展名不变。
+只用来传输，`unpack` 先解到旁边的 `.qj.part`（扫 `*.qj` 的看不见）、按调用方给的种类整份校验、放掉映射后才改名换上（Windows 上映射着的文件改不了名），种类不对不动原文件；
+不让引擎直接读 `.qjz`：解到堆上要多占整份大小的常驻内存（基础词库 15 MB、通用扩展 69 MB），mmap 按需换页的好处也没了。解压上限 1 GiB 挡压缩炸弹。
+`dict-convert qjz <.qj>…` 写 `<输出目录>/<主干>.qjz`（词库仓库的 `tools/pack.py` 调它）；设置程序下载词库用 `unpack` 直接解进用户词库目录；`qingjian-dictionary` 的导入认 `.qjz`：先解到系统临时目录、只收拼音词库，再按 `.qj` 导入（统一按文件名主干命名、空词库拒绝）。
 
 ## crates/qingjian-neural
 
